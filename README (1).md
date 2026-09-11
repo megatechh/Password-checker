@@ -1,107 +1,81 @@
-# Image Steganography Tool (Python)
+# Password Strength Checker + Breach Detector (Python)
 
-A command-line tool that hides secret text messages inside PNG images
-using **LSB (Least Significant Bit)** encoding, extracts hidden messages
-back out, and includes a basic detection/analysis mode to flag images
-that likely contain hidden data.
+A command-line tool that analyzes password strength offline and checks
+whether a password has appeared in known data breaches — using the
+**Have I Been Pwned (HIBP)** API with a privacy-safe **k-anonymity** model
+(your real password, and even the full hash, never leaves your machine).
 
 ## What this project demonstrates
-- Understanding of steganography vs. cryptography (hiding existence of
-  data vs. hiding its content)
-- Bit-level manipulation and binary encoding
-- Basic steganalysis (detection) thinking — relevant for VAPT/forensics roles
-- Simple obfuscation (XOR) layered on top of steganography for extra credit
+- Understanding of password security principles (entropy, complexity, common patterns)
+- Practical use of hashing (SHA-1) and API integration
+- Privacy-conscious design (k-anonymity model — a real technique used by HIBP itself)
+- Clean CLI tool development in Python
 
-## How it works (good to know for interviews)
-
-Every pixel in an image is made of Red, Green, Blue values (0–255 each).
-Changing only the **last bit** of each value shifts the color by at most
-1 out of 255 — completely invisible to the human eye. This tool converts
-your secret message into binary and hides one bit per color channel:
-
-```
-Original pixel:  R=200 (11001000)  G=150 (10010110)  B=90 (01011010)
-Secret bits:            1                 0                1
-Modified pixel:  R=201 (11001001)  G=150 (10010110)  B=91 (01011011)
-```
-
-A special delimiter (`#####END#####`) marks where the hidden message
-ends, so extraction knows when to stop reading.
+## How the breach check works (important for interviews!)
+1. Your password is hashed locally using SHA-1 — it is never sent anywhere.
+2. Only the **first 5 characters** of that hash are sent to the HIBP API.
+3. The API returns all hash suffixes that start with those 5 characters
+   (usually several hundred).
+4. Your script compares the *rest* of your hash against that list locally.
+5. This means the API never sees your full password OR your full hash —
+   this is called the **k-anonymity model**.
 
 ## Setup
 
 ```bash
-pip install Pillow
+pip install requests
 ```
 
 ## Usage
 
-**Hide a message:**
+**Interactive (recommended — hides your typing):**
 ```bash
-python stego_tool.py hide -i cover.png -o secret.png -m "Your secret message"
+python password_checker.py
 ```
 
-**Hide the contents of a text file:**
+**Pass password directly (careful — visible in terminal history):**
 ```bash
-python stego_tool.py hide -i cover.png -o secret.png -f message.txt
+python password_checker.py --password "MySecret123!"
 ```
 
-**Hide a message with password protection (XOR obfuscation):**
+**Offline mode only (skip the breach check, no internet needed):**
 ```bash
-python stego_tool.py hide -i cover.png -o secret.png -m "Top secret" --password "mypass123"
+python password_checker.py --password "MySecret123!" --no-breach-check
 ```
-
-**Extract a hidden message:**
-```bash
-python stego_tool.py extract -i secret.png
-python stego_tool.py extract -i secret.png --password "mypass123"   # if password was used
-```
-
-**Analyze an image for likely hidden data (detection mode):**
-```bash
-python stego_tool.py analyze -i secret.png
-```
-
-## Important notes
-- **Use PNG images only.** JPEG uses lossy compression, which destroys
-  LSB data. Always save cover/output images as PNG.
-- Larger images can hide more data — a 500×500 image can hold roughly
-  90,000 characters at maximum capacity (in practice, keep messages
-  well under that for reliability).
-- The password feature uses a simple **XOR cipher** — this is for
-  educational demonstration, not production-grade encryption. If you
-  want to extend this into a stronger project, combine it with AES
-  encryption (encrypt the message first, then hide the ciphertext).
-
-## The "analyze" command — what it actually checks
-This is a simplified educational steganalysis check: it measures how
-close an image's least-significant-bit distribution is to a random
-50/50 split. LSB steganography pushes this ratio close to 50%, so
-images noticeably close to that split are flagged as suspicious. It
-also attempts a direct extraction to see if the delimiter is present.
-Real steganalysis tools (e.g., StegExpose, zsteg) use more advanced
-statistical methods — mention this as a known limitation if asked.
 
 ## Sample Output
+
 ```
-✓ Message hidden successfully in 'secret.png'
-  Message length: 52 characters
-  Image capacity used: 0.43%
+=======================================================
+ PASSWORD SECURITY REPORT
+=======================================================
+Password length : 16 characters
+Estimated entropy: 104.9 bits
+Strength rating  : Strong
+[#################---] 7/8
 
-✓ Hidden message found:
+Feedback:
+  - Good password hygiene — no major issues found.
 
-This is a secret cybersecurity project test message!
+-------------------------------------------------------
+ BREACH CHECK (Have I Been Pwned)
+-------------------------------------------------------
+  ✓ Good news — this password was not found in any known breach.
+=======================================================
 ```
 
-## Resume Bullet
-> "Built a Python steganography tool implementing LSB (Least Significant
-> Bit) encoding to embed and extract hidden text within PNG images;
-> added password-based XOR obfuscation and a basic statistical
-> steganalysis module to detect likely LSB-modified images."
+## What the strength checker evaluates
+- Length (12+ recommended, 16+ ideal)
+- Character variety (uppercase, lowercase, digits, special characters)
+- Estimated entropy (bits of randomness)
+- Common password list matching
+- Repeated character patterns (`aaa`, `111`)
+- Sequential patterns (`1234`, `abcd`, `qwerty`)
 
-## Possible Extensions
-- Replace XOR with real AES encryption (via the `cryptography` library)
-  before hiding the message
-- Support hiding files/images inside images, not just text
-- Build a simple GUI (Tkinter) or web frontend for drag-and-drop use
-- Add audio-file steganography (hide data in .wav files) as a bonus module
+## Possible Extensions (great for making the project stand out further)
+- Build a simple web frontend (HTML/React) that calls this logic via a Flask/Node API
+- Add a bigger common-password wordlist (e.g., the `rockyou.txt` top 10k)
+- Add password generation suggestions based on the feedback
+- Log check history locally (never log actual passwords — only ratings/timestamps)
+
+
